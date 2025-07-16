@@ -1,9 +1,9 @@
 import requests
 import json
 from dotenv import dotenv_values
+# Переписать в ООП, добавить методы - авторизация, проверка сессии, вывод списка заказов на определенную дату от Гермеон, печать предварительных заявок
 
 config = dotenv_values('.env')
-session = requests.session()
 url = 'https://api.dellin.ru/v3/auth/session_info.json'
 
 headers = {'accept': 'application/json',
