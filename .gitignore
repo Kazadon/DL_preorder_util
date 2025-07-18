@@ -209,3 +209,4 @@ __marimo__/
 .venv/
 .env
 hh_parser.py
+docsForPrint/*

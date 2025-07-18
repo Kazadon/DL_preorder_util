@@ -1,6 +1,8 @@
 import requests
 import json
 from dotenv import dotenv_values
+import os
+import base64
 # Переписать в ООП, добавить методы - авторизация, проверка сессии, вывод списка заказов на определенную дату от Гермеон, печать предварительных заявок
 
 
@@ -23,12 +25,11 @@ class DellinScraper:
         json_string = json.dumps(data)
         response = requests.post(url, headers=self.headers, data=json_string)
         if response.status_code == 200:
-            print(f"\nResponse 200.\nAUTH - succesful request\n{response.text}")
+            print(f"\nAUTH - succesful request\n")
             self.sessionID = json.loads(response.content)['data']['sessionID']
 
         else:
-            print("\nAUTH ERROR")
-            print(response)
+            print(f"\nAUTH ERROR\n{response}")
 
     # Проверка активности сессии
     def check_session(self) -> None:
@@ -39,11 +40,11 @@ class DellinScraper:
         response = requests.post(url, headers=self.headers, data=json_string)
 
         if response.status_code == 200:
-            print(f"\nResponse 200.\nCheck session - succesful request.\nsessionID: {data['sessionID']}\n{response.text}")
+            print(f"Check session - succesful request.\nsessionID: {data['sessionID']}\n")
         else:
-            print("\nCHECK SESSION ERROR \nWrong ApiToken/sessionID or something went wrong\nTry again to auth")
-            print(response)
+            print(f"\nCHECK SESSION ERROR \nWrong ApiToken/sessionID or something went wrong\nTry again to auth\n{response}")
 
+    # Закрытие активной сессии
     def close_session(self) -> None:
         url = 'https://api.dellin.ru/v3/auth/logout.json'
         data = {"appKey": self.token,
@@ -52,23 +53,94 @@ class DellinScraper:
         response = requests.post(url, headers=self.headers, data=json_string)
 
         if response.status_code == 200:
-            print(f"\nResponse 200.\nLOGOUT - succesful request.\nSESSION CLOSED\n{response.text}")
+            print(f"\nLOGOUT - succesful request.\nSESSION CLOSED\n")
         else:
-            print("\nCLOSE SESSION ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again")
-            print(response)
+            print(f"\nCLOSE SESSION ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
 
-    def order_list(self) -> None:
-        # 'https://api.dellin.ru/v3/orders.json'
+    # Метод возвращает список номеров предварительных заявок от ООО Гермеон на указанную дату оформления заказов
+    def get_germeon_orders(self):
+        url = 'https://api.dellin.ru/v3/orders.json'
+        date = input('Введите дату оформления заказа в формате ГГГГ-ММ-ДД:\n')
+        data = {"appkey":config["DL_API_TOKEN"], 
+                "sessionID":self.sessionID,
+                "dateStart": f'{date} 00:00', # Форматы даты ГГГГ-ММ-ДД
+                "dateEnd": f'{date} 23:59'
+                }
+        json_string = json.dumps(data)
+        print('\nПолучение списка заявок от ООО Гермеон\nЗагрузка...\n\n')
+        response = requests.post(url, headers=self.headers, data=json_string)
+
+        if response.status_code == 200:
+            json_dict = json.loads(response.content)
+            totalPages = int(json_dict['metadata']['totalPages'])
+            if totalPages > 1:
+                for page in range(2, totalPages + 1):
+                    data = {"appkey":config["DL_API_TOKEN"], 
+                            "sessionID":self.sessionID,
+                            "dateStart": f'{date } 00:00', # Форматы даты ГГГГ-ММ-ДД
+                            "dateEnd": f'{date} 23:59',
+                            'page': page
+                            }
+                    json_string = json.dumps(data)
+                    response = requests.post(url, headers=self.headers, data=json_string)
+                    json_dict['orders'].extend(json.loads(response.content)['orders'])
+            orders_list = []
+
+            for order in json_dict['orders']:
+                if "гермеон" in order['sender']['name'].lower():
+                    # Возможно понадобится возвращать список заказов с полной информацией, а не определенные ключ:значение
+                    orders_list.append({"Номер заявки": order['orderId'], "Получатель": order['receiver']['name'],"Количество копий": order['freight']['places'] + 1})   
+                    # Количество копий маркировок равняется количеству грузовых мест + 1
+            if orders_list:
+                print(f"\nGET ORDER LIST - succesful request.\n\n")
+                return orders_list
+            else: 
+                print('На выбранную дату нет заявок от ООО Гермеон. Проверьте дату')
+                self.close_session()
+        else:
+            print(f"\nGET ORDER LIST ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
+            self.close_session()
         pass
+    
+    # Сохранение печатных форм предварительных заявок в файл в папку docsForPrint для дальнейшей печати или редактирования
+    def save_preorderPage(self, list: list) -> None:
+        url = 'https://api.dellin.ru/v1/customers/request/pdf.json'
+        print(f'\n\nСохранение печатных форм предварительных заявок в папку {os.getcwd()}/docsForPrint\n\nЗагрузка...\n\n')
+        if not os.path.exists('docsForPrint'):
+            os.mkdir('docsForPrint')
+        for item in list:
+            data = {"appkey": config['DL_API_TOKEN'],
+                    "sessionID": self.sessionID,
+                    "requestID": item['Номер заявки']}
+            json_string = json.dumps(data)
+            # Запрос возвращает JSON с документом в формате base64
+            response = requests.post(url, headers=self.headers, data=json_string)
 
-    def documents_list(self) -> None:
-        # 'https://api.dellin.ru/v1/customers/request/pdf.json'
+            if response.status_code == 200:
+                filename = f'{item['Номер заявки']} - {item['Получатель'].replace('"', '')}'
+                try:
+                    with open(f'docsForPrint/{filename}.pdf',"wb") as f:
+                            f.write(base64.b64decode(json.loads(response.content)['base64']))
+                            print(f"Печатная форма заявки {filename} сохранена.\n")
+                except Exception as e:
+                    print(f'Ошибка - {e}')
+                    self.close_session()
+            else:
+                print(f"\nSAVE DOC ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
+                self.close_session()
+            pass
+
+
+    def save_docs(self, list: list) -> None:
         pass
 
 config = dotenv_values('.env')
 app = DellinScraper(config['DL_API_TOKEN'], config['LOGIN'], config['PASSWORD'])
 app.auth()
 app.check_session()
+orders = app.get_germeon_orders()
+if orders:
+    app.save_preorderPage(orders)
+    app.close_session()
+# '2025-07-16', 'ООО "ГЕРМЕОН"'
 
-
-app.close_session()
