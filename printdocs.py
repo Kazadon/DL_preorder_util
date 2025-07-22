@@ -7,9 +7,6 @@ class PrintDocument:
             if not os.path.exists(path_to_file):
                 print(f"Error: PDF file not found at {path_to_file}")
                 return
-            #для каждого трека проверять совпадение с файлом и удалять совпавший файл
-            # for orderId in orders_list: for filename in files
-            # path_to_file = fr'docsForPrint\55537023 - БИГ.pdf'
             command = f'SumatraPDF.exe -print-to-default -silent -exit-on-print -print-settings "{number_of_copies}x" "{path_to_file}"'
             try:
                 subprocess.run(command, shell=True, check=True)
