@@ -3,6 +3,11 @@ import json
 from dotenv import dotenv_values
 import os
 import base64
+from printdocs import PrintDocument
+# import win32print
+# import win32api
+
+
 # Переписать в ООП, добавить методы - авторизация, проверка сессии, вывод списка заказов на определенную дату от Гермеон, печать предварительных заявок
 
 
@@ -106,8 +111,6 @@ class DellinScraper:
     def save_preorderPage(self, list: list) -> None:
         url = 'https://api.dellin.ru/v1/customers/request/pdf.json'
         print(f'\n\nСохранение печатных форм предварительных заявок в папку {os.getcwd()}/docsForPrint\n\nЗагрузка...\n\n')
-        if not os.path.exists('docsForPrint'):
-            os.mkdir('docsForPrint')
         for item in list:
             data = {"appkey": config['DL_API_TOKEN'],
                     "sessionID": self.sessionID,
@@ -131,16 +134,42 @@ class DellinScraper:
             pass
 
 
-    def save_docs(self, list: list) -> None:
-        pass
+    def print_docs(self, orders_list: list) -> None:
+        # Печать документов из директории. Проверяется соответствие номера заявки с названием файла и указывается количество копий документа на печать
+        directory = fr'.\docsForPrint'
+        try:
+            for order in orders_list: 
+                for filename in os.listdir(directory):
+                    if order['Номер заявки'] in filename:
+                        PrintDocument.print_document(fr'{directory}\{filename}', order['Количество копий'] )
+                        os.remove(fr'{directory}\{filename}')
+                        print(f"Печатная форма заявки {directory}\{filename} удалена.\n")
+        except Exception as e:
+            print(f'In print docs:\n{e}')
 
+        
+                    
+
+if not os.path.exists('docsForPrint'):
+            os.mkdir('docsForPrint')
 config = dotenv_values('.env')
 app = DellinScraper(config['DL_API_TOKEN'], config['LOGIN'], config['PASSWORD'])
-app.auth()
-app.check_session()
-orders = app.get_germeon_orders()
-if orders:
-    app.save_preorderPage(orders)
+
+if not os.listdir('docsForPrint'):
+    app.auth()
+    app.check_session()
+    orders = app.get_germeon_orders()
+    if orders:
+        app.save_preorderPage(orders)
+        app.print_docs(orders)
+        app.close_session()
+else:
+    print(f'Каталог не пустой')
     app.close_session()
-# '2025-07-16', 'ООО "ГЕРМЕОН"'
+    exit()
+    # 2025-06-16
+
+
+
+
 
