@@ -108,7 +108,7 @@ class DellinScraper:
         pass
     
     # Сохранение печатных форм предварительных заявок в файл в папку docsForPrint для дальнейшей печати или редактирования
-    def save_preorderPage(self, list: list) -> None:
+    def Print_preorderPages(self, list: list) -> None:
         url = 'https://api.dellin.ru/v1/customers/request/pdf.json'
         print(f'\n\nСохранение печатных форм предварительных заявок в папку {os.getcwd()}/docsForPrint\n\nЗагрузка...\n\n')
         for item in list:
@@ -122,18 +122,26 @@ class DellinScraper:
             if response.status_code == 200:
                 filename = f'{item['Номер заявки']} - {item['Получатель'].replace('"', '')}'
                 try:
-                    with open(f'docsForPrint/{filename}.pdf',"wb") as f:
+                    with open(fr'.\docsForPrint\{filename}.pdf',"wb") as f:
                             f.write(base64.b64decode(json.loads(response.content)['base64']))
-                            print(f"Печатная форма заявки {filename} сохранена.\n")
+                            print(f"Файл {filename}.pdf сохранен.")
+                            f.close()
+                    # Печать файла сразу после сохранения с последующим удалением из директории.
+                    try:        
+                        PrintDocument.print_document(fr'.\docsForPrint\{filename}.pdf' , item['Количество копий'] )
+                        os.remove(fr'.\docsForPrint\{filename}.pdf')
+                        print(fr'Файл {filename}.pdf удален')
+                    except Exception as e:
+                        print(e)
+                        self.close_session()
                 except Exception as e:
                     print(f'Ошибка - {e}')
                     self.close_session()
             else:
                 print(f"\nSAVE DOC ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
                 self.close_session()
-            pass
 
-
+    # Сейчас не используется. Метод нужен был для печати файлов только после сохранения всех заявок в запросе. 
     def print_docs(self, orders_list: list) -> None:
         # Печать документов из директории. Проверяется соответствие номера заявки с названием файла и указывается количество копий документа на печать
         directory = fr'.\docsForPrint'
@@ -143,7 +151,7 @@ class DellinScraper:
                     if order['Номер заявки'] in filename:
                         PrintDocument.print_document(fr'{directory}\{filename}', order['Количество копий'] )
                         os.remove(fr'{directory}\{filename}')
-                        print(f"Печатная форма заявки {directory}\{filename} удалена.\n")
+                        print(fr"Печатная форма заявки {directory}\{filename} удалена.\n")
         except Exception as e:
             print(f'In print docs:\n{e}')
 
@@ -160,14 +168,13 @@ if not os.listdir('docsForPrint'):
     app.check_session()
     orders = app.get_germeon_orders()
     if orders:
-        app.save_preorderPage(orders)
-        app.print_docs(orders)
+        app.Print_preorderPages(orders)
         app.close_session()
 else:
     print(f'Каталог не пустой')
     app.close_session()
     exit()
-    # 2025-06-16
+    # 2025-07-23
 
 
 
