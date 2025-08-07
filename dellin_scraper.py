@@ -166,9 +166,14 @@ app = DellinScraper(config['DL_API_TOKEN'], config['LOGIN'], config['PASSWORD'])
 if not os.listdir('docsForPrint'):
     app.auth()
     app.check_session()
-    orders = app.get_germeon_orders()
-    if orders:
-        app.Print_preorderPages(orders)
+    mode = input('Выберите режим:\n1 - для печати всех предварительных заявок на определенную дату\n2 - для печати по номеру заявки\n')
+    if int(mode)==1:
+        orders = app.get_germeon_orders()
+        if orders:
+            app.Print_preorderPages(orders)
+            app.close_session()
+    else: 
+        print("\nВариант 2 на доработке")
         app.close_session()
 else:
     print(f'Каталог не пустой')
