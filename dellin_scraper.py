@@ -3,6 +3,7 @@ import json
 from dotenv import dotenv_values
 import os
 import base64
+import binascii
 from printdocs import PrintDocument
 # import win32print
 # import win32api
@@ -58,9 +59,9 @@ class DellinScraper:
         response = requests.post(url, headers=self.headers, data=json_string)
 
         if response.status_code == 200:
-            print(f"\nLOGOUT - succesful request.\nSESSION CLOSED\n")
+            print(f"\nLOGOUT - succesful.\nSESSION CLOSED\n")
         else:
-            print(f"\nCLOSE SESSION ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
+            print(f"\nCLOSE SESSION ERROR\nWrong ApiToken/sessionID or session already closed\n{response}")
 
     # Метод возвращает список номеров предварительных заявок от ООО Гермеон на указанную дату оформления заказов
     def get_germeon_orders(self):
@@ -108,7 +109,7 @@ class DellinScraper:
         pass
     
     # Сохранение печатных форм предварительных заявок в файл в папку docsForPrint для дальнейшей печати или редактирования
-    def Print_preorderPages(self, list: list) -> None:
+    def print_preorderPages(self, list: list) -> None:
         url = 'https://api.dellin.ru/v1/customers/request/pdf.json'
         print(f'\n\nСохранение печатных форм предварительных заявок в папку {os.getcwd()}/docsForPrint\n\nЗагрузка...\n\n')
         for item in list:
@@ -141,19 +142,51 @@ class DellinScraper:
                 print(f"\nSAVE DOC ERROR\nWrong ApiToken/sessionID or something went wrong\nTry again\n{response}")
                 self.close_session()
 
-    # Сейчас не используется. Метод нужен был для печати файлов только после сохранения всех заявок в запросе. 
-    def print_docs(self, orders_list: list) -> None:
-        # Печать документов из директории. Проверяется соответствие номера заявки с названием файла и указывается количество копий документа на печать
-        directory = fr'.\docsForPrint'
-        try:
-            for order in orders_list: 
-                for filename in os.listdir(directory):
-                    if order['Номер заявки'] in filename:
-                        PrintDocument.print_document(fr'{directory}\{filename}', order['Количество копий'] )
-                        os.remove(fr'{directory}\{filename}')
-                        print(fr"Печатная форма заявки {directory}\{filename} удалена.\n")
-        except Exception as e:
-            print(f'In print docs:\n{e}')
+    def print_order(self, order_number, copies_number):
+        url = 'https://api.dellin.ru/v1/customers/request/pdf.json'
+        data = {"appkey": config['DL_API_TOKEN'],
+                "sessionID": self.sessionID,
+                "requestID": order_number}
+        json_string = json.dumps(data)
+        # Запрос возвращает JSON с документом в формате base64
+        response = requests.post(url, headers=self.headers, data=json_string)
+
+        if response.status_code == 200:
+            filename = f'{order_number}'
+            try:
+                with open(fr'.\docsForPrint\{filename}.pdf',"wb") as f:
+                        f.write(base64.b64decode(json.loads(response.content)['base64']))
+                        print(f"Файл {filename}.pdf сохранен.")
+                        f.close()
+                # Печать файла сразу после сохранения с последующим удалением из директории.
+                try:        
+                    PrintDocument.print_document(fr'.\docsForPrint\{filename}.pdf' , copies_number)
+                    os.remove(fr'.\docsForPrint\{filename}.pdf')
+                    print(fr'Файл {filename}.pdf удален')
+                except Exception as e:
+                    print(e)
+                    self.close_session()
+            except Exception as e:
+                print(f'Ошибка - {e}')
+                os.remove(fr'.\docsForPrint\{filename}.pdf')
+                self.close_session()
+        else:
+            print(f"\nPRINT ORDER ERR\НОМЕР ЗАЯВКИ {order_number} НЕ СУЩЕСТВУЕТ ИЛИ что-то пошло не так\nTry again\n{response}")
+            self.close_session()
+
+    # # Сейчас не используется. Метод нужен был для печати файлов только после сохранения всех заявок в запросе. 
+    # def print_docs(self, orders_list: list) -> None:
+    #     # Печать документов из директории. Проверяется соответствие номера заявки с названием файла и указывается количество копий документа на печать
+    #     directory = fr'.\docsForPrint'
+    #     try:
+    #         for order in orders_list: 
+    #             for filename in os.listdir(directory):
+    #                 if order['Номер заявки'] in filename:
+    #                     PrintDocument.print_document(fr'{directory}\{filename}', order['Количество копий'] )
+    #                     os.remove(fr'{directory}\{filename}')
+    #                     print(fr"Печатная форма заявки {directory}\{filename} удалена.\n")
+    #     except Exception as e:
+    #         print(f'In print docs:\n{e}')
 
         
                     
@@ -170,10 +203,15 @@ if not os.listdir('docsForPrint'):
     if int(mode)==1:
         orders = app.get_germeon_orders()
         if orders:
-            app.Print_preorderPages(orders)
+            app.print_preorderPages(orders)
             app.close_session()
-    else: 
-        print("\nВариант 2 на доработке")
+    elif int(mode)==2: 
+        order_number = input("Введите номер заявки:\n")
+        copies_number = input("Введите количество копий документа для печати:\n")
+        app.print_order(order_number, copies_number)
+        app.close_session()
+    else:
+        print("Неправильно указан режим")
         app.close_session()
 else:
     print(f'Каталог не пустой')
