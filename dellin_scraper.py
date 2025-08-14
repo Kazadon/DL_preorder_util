@@ -1,5 +1,6 @@
 import requests
 import json
+import sys
 from dotenv import dotenv_values
 import os
 import base64
@@ -193,7 +194,14 @@ class DellinScraper:
 
 if not os.path.exists('docsForPrint'):
             os.mkdir('docsForPrint')
-config = dotenv_values('.env')
+
+# обязательный кусок кода для добавления .env файла при компиляции в exe
+extDataDir = os.getcwd()
+if getattr(sys, 'frozen', False):
+    extDataDir = sys._MEIPASS
+config = dotenv_values(os.path.join(extDataDir, '.env'))
+
+
 app = DellinScraper(config['DL_API_TOKEN'], config['LOGIN'], config['PASSWORD'])
 
 if not os.listdir('docsForPrint'):
