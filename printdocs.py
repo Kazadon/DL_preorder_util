@@ -7,7 +7,7 @@ class PrintDocument:
             if not os.path.exists(path_to_file):
                 print(f"Error: PDF file not found at {path_to_file}")
                 return
-            command = f'SumatraPDF.exe -print-to-default -silent -exit-on-print -print-settings "{number_of_copies}x" "{path_to_file}"'
+            command = fr'SumatraPDF.exe -print-to-default -silent -exit-on-print -print-settings "{number_of_copies}x" "{path_to_file}"'
             try:
                 subprocess.run(command, shell=True, check=True)
                 print(f"{path_to_file} отправлен на печать")

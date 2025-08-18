@@ -210,6 +210,5 @@ __marimo__/
 .env
 hh_parser.py
 docsForPrint/*
-печать заявок ДЛ.bat
 .spec
 .ico
