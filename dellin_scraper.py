@@ -4,13 +4,7 @@ import sys
 from dotenv import dotenv_values
 import os
 import base64
-import binascii
 from printdocs import PrintDocument
-# import win32print
-# import win32api
-
-
-# Переписать в ООП, добавить методы - авторизация, проверка сессии, вывод списка заказов на определенную дату от Гермеон, печать предварительных заявок
 
 
 class DellinScraper:
@@ -174,22 +168,7 @@ class DellinScraper:
         else:
             print(f"\nPRINT ORDER ERR\НОМЕР ЗАЯВКИ {order_number} НЕ СУЩЕСТВУЕТ ИЛИ что-то пошло не так\nTry again\n{response}")
             self.close_session()
-
-    # # Сейчас не используется. Метод нужен был для печати файлов только после сохранения всех заявок в запросе. 
-    # def print_docs(self, orders_list: list) -> None:
-    #     # Печать документов из директории. Проверяется соответствие номера заявки с названием файла и указывается количество копий документа на печать
-    #     directory = fr'.\docsForPrint'
-    #     try:
-    #         for order in orders_list: 
-    #             for filename in os.listdir(directory):
-    #                 if order['Номер заявки'] in filename:
-    #                     PrintDocument.print_document(fr'{directory}\{filename}', order['Количество копий'] )
-    #                     os.remove(fr'{directory}\{filename}')
-    #                     print(fr"Печатная форма заявки {directory}\{filename} удалена.\n")
-    #     except Exception as e:
-    #         print(f'In print docs:\n{e}')
-
-        
+       
                     
 
 if not os.path.exists('docsForPrint'):
@@ -207,25 +186,32 @@ app = DellinScraper(config['DL_API_TOKEN'], config['LOGIN'], config['PASSWORD'])
 if not os.listdir('docsForPrint'):
     app.auth()
     app.check_session()
-    mode = input('Выберите режим:\n1 - для печати всех предварительных заявок на определенную дату\n2 - для печати по номеру заявки\n')
-    if int(mode)==1:
+    mode = input(f'Выберите режим:\n1 - Печать всех предварительных заявок на определенную дату\n2 - Печать предварительной заявки по номеру\nexit - Завершить программу\n').replace(' ', '').lower()
+    if mode=="1":
         orders = app.get_germeon_orders()
         if orders:
             app.print_preorderPages(orders)
             app.close_session()
-    elif int(mode)==2: 
+            input("\nВыполнено. Нажмите Enter, чтобы закрыть...")
+    elif mode==2: 
         order_number = input("Введите номер заявки:\n")
         copies_number = input("Введите количество копий документа для печати:\n")
         app.print_order(order_number, copies_number)
         app.close_session()
-    else:
-        print("Неправильно указан режим")
+        input("\nВыполнено. Нажмите Enter, чтобы закрыть...")
+    elif mode=="exit":
         app.close_session()
+        input("\nЗавершено. Нажмите Enter, чтобы закрыть...")
+    
+    else:
+        print(f"Неправильно указан режим.\n")
+        app.close_session()
+        input("\nЗавершено. Нажмите Enter, чтобы закрыть...")
+
 else:
     print(f'Каталог не пустой')
     app.close_session()
     exit()
-    # 2025-07-23
 
 
 
