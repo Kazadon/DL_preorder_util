@@ -193,7 +193,7 @@ if not os.listdir('docsForPrint'):
             app.print_preorderPages(orders)
             app.close_session()
             input("\nВыполнено. Нажмите Enter, чтобы закрыть...")
-    elif mode==2: 
+    elif mode=="2": 
         order_number = input("Введите номер заявки:\n")
         copies_number = input("Введите количество копий документа для печати:\n")
         app.print_order(order_number, copies_number)
