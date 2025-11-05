@@ -5,7 +5,7 @@ from dotenv import dotenv_values
 import os
 import base64
 from printdocs import PrintDocument
-
+from datetime import datetime
 
 class DellinScraper:
 
@@ -61,7 +61,9 @@ class DellinScraper:
     # Метод возвращает список номеров предварительных заявок от ООО Гермеон на указанную дату оформления заказов
     def get_germeon_orders(self):
         url = 'https://api.dellin.ru/v3/orders.json'
-        date = input('Введите дату оформления заказа в формате ГГГГ-ММ-ДД:\n')
+        date_str = input('Введите дату оформления заказа в формате ДД.ММ.ГГГГ:\n').replace('.', '-').replace(',', '-').replace('/','-').strip().strip('-')
+        date = datetime.strptime(date_str, "%d-%m-%Y")
+        date = date.strftime('%Y-%m-%d')
         data = {"appkey":config["DL_API_TOKEN"], 
                 "sessionID":self.sessionID,
                 "dateStart": f'{date} 00:00', # Форматы даты ГГГГ-ММ-ДД
